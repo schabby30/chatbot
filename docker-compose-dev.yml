@@ -1,0 +1,54 @@
+x-mongo-db-username: &mongo-db-username                                     ${MONGO_DB_USERNAME:-mongo}
+x-mongo-db-password: &mongo-db-password                                     ${MONGO_DB_PASSWORD:-mongo}
+x-time_zone: &time_zone                                                     Europe/Greenich
+x-groq-api-key: &groq-api-key                                               ${GROQ_API_KEY}
+
+services:
+  chatbot:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      GROQ_API_KEY: *groq-api-key
+    restart: always
+    networks:
+      - chatwork
+
+  mongo-db:
+    image: mongo
+    container_name: mongo-db
+    environment:
+      TZ: *time_zone
+      MONGO_INITDB_ROOT_USERNAME: *mongo-db-username
+      MONGO_INITDB_ROOT_PASSWORD: *mongo-db-password
+    volumes:
+      - ~/db/mongodb/data:/data/db
+      - ~/db//mongodb/config:/data/configdb
+    restart: on-failure
+    ports:
+      - 27017:27017
+    networks:
+      - chatwork
+    healthcheck:
+      test: [ "CMD-SHELL", "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    restart: always
+    ports:
+      - 47081:8081
+    networks:
+      - chatwork
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: admin
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:mongo@mongo-db:27017/
+      ME_CONFIG_BASICAUTH: false
+
+networks:
+  chatwork:
+    driver: bridge
